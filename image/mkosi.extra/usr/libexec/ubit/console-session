@@ -1,0 +1,10 @@
+#!/bin/sh
+# Adds or removes SDDM autologin for the trial user, depending on ubit.console=1.
+set -eu
+conf=/etc/sddm.conf.d/30-ubit-console.conf
+if tr ' ' '\n' < /proc/cmdline | grep -qx 'ubit.console=1'; then
+    mkdir -p /etc/sddm.conf.d
+    printf '[Autologin]\nUser=trial\nSession=plasmax11\n' > "$conf"
+else
+    rm -f "$conf"
+fi

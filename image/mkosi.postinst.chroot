@@ -20,5 +20,5 @@ case "$(dpkg-query -W -f='${Version}' firefox 2>/dev/null || true)" in
     *snap*|"") echo "firefox must come from packages.mozilla.org, not the snap" >&2; exit 1 ;;
 esac
 
-systemctl enable ubit-agent.service NetworkManager.service sddm.service
+systemctl enable ubit-agent.service NetworkManager.service sddm.service ubit-console-session.service
 systemctl set-default graphical.target

@@ -23,7 +23,7 @@
   "$defs": {
     "short_string": { "type": "string", "maxLength": 512 },
     "hello": {
-      "description": "Host -> agent. First message on every connection.",
+      "description": "Host -> agent. First message on every connection. Sending it again starts the session over (serial transports have no disconnect signal).",
       "type": "object",
       "required": ["type", "host_os", "shell_version"],
       "properties": {

@@ -8,14 +8,13 @@
         <StackPanel Margin="28,24">
             <TextBlock Text="Try ubit on this PC" FontSize="26" FontWeight="SemiBold"/>
             <TextBlock Margin="0,4,0,20" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
-                       Text="ubit runs in a Hyper-V window next to your Windows apps. Nothing on Windows is changed, and your app list never leaves this PC."/>
+                       Text="ubit runs in a window next to your Windows apps. Nothing on Windows is changed, and your app list never leaves this PC."/>
 
             <Border x:Name="SetupBanner" Background="{StaticResource WarnBg}" CornerRadius="8" Padding="16,12" Margin="0,0,0,16" Visibility="Collapsed">
                 <StackPanel>
                     <TextBlock Text="One-time setup needed" FontWeight="SemiBold" Foreground="{StaticResource WarnInk}"/>
                     <TextBlock x:Name="SetupText" TextWrapping="Wrap" Foreground="{StaticResource WarnInk}" Margin="0,4,0,0"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource WarnInk}" Margin="0,6,0,0"
-                               Text="Run scripts\setup-host.ps1 as Administrator, then sign out and back in."/>
+                    <TextBlock x:Name="SetupHint" TextWrapping="Wrap" Foreground="{StaticResource WarnInk}" Margin="0,6,0,0"/>
                 </StackPanel>
             </Border>
 
@@ -65,7 +64,7 @@
             </Border>
 
             <TextBlock Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
-                       Text="The full report opens inside ubit after you sign in (user: trial, password: trial in this preview)."/>
+                       Text="The full report opens inside ubit after sign-in. Preview sign-in, if asked: user trial, password trial."/>
         </StackPanel>
     </ScrollViewer>
 </Window>

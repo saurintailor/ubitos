@@ -5,7 +5,7 @@ After=local-fs.target systemd-sysusers.service
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/ubit-agent --listen vsock:7710 --catalog /usr/share/ubit/catalog --report-dir /var/lib/ubit/report
+ExecStart=/usr/bin/ubit-agent --listen vsock:7710 --listen serial:/dev/virtio-ports/org.ubit.agent.0 --catalog /usr/share/ubit/catalog --report-dir /var/lib/ubit/report
 User=ubit-agent
 Group=ubit-agent
 Restart=on-failure
@@ -16,14 +16,16 @@ StateDirectory=ubit ubit/report
 StateDirectoryMode=0755
 UMask=0022
 
-# Hardening: the agent needs vsock and nothing else.
+# Hardening: the agent needs vsock, its virtio-serial port, and nothing else.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-PrivateDevices=yes
+# Only the virtio-serial port (QEMU hosts); 60-ubit-agent.rules hands it to this user.
+DevicePolicy=closed
+DeviceAllow=char-virtio-portsdev rw
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes

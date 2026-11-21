@@ -143,3 +143,36 @@ async fn garbage_is_reported_and_a_wrong_version_closes_the_session() {
         "agent should have closed"
     );
 }
+
+#[tokio::test]
+async fn a_second_hello_starts_the_session_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let (host, _task) = start(dir.path().to_path_buf());
+    let (mut r, mut w) = tokio::io::split(host);
+    for os in [HostOs::Windows, HostOs::Macos] {
+        let hello = Hello {
+            host_os: os,
+            shell_version: "test".into(),
+        };
+        write_message(&mut w, &Envelope::new(Body::Hello(hello)))
+            .await
+            .unwrap();
+        assert!(matches!(recv(&mut r).await, Body::HelloAck(_)));
+    }
+    // The session now scores as macOS: a bundle id matches, a Windows display name would not.
+    let inv = HostInventory {
+        apps: vec![App {
+            id: "com.google.Chrome".into(),
+            name: "x".into(),
+            source: "applications".into(),
+        }],
+        ..Default::default()
+    };
+    write_message(&mut w, &Envelope::new(Body::HostInventory(inv)))
+        .await
+        .unwrap();
+    match recv(&mut r).await {
+        Body::ScoreResult(result) => assert_eq!(result.score, Some(100)),
+        other => panic!("expected score_result, got {other:?}"),
+    }
+}

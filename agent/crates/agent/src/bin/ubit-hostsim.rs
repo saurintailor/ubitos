@@ -17,7 +17,7 @@ use ubit_protocol::{
 #[derive(Debug, Parser)]
 #[command(about = "Simulates a ubit host app talking to the agent")]
 struct Args {
-    /// tcp:HOST:PORT or vsock:CID:PORT
+    /// tcp:HOST:PORT, vsock:CID:PORT, or serial:PATH
     #[arg(long, default_value = "tcp:127.0.0.1:7710")]
     connect: String,
     /// JSON inventory to send (defaults to a small built-in sample).
@@ -78,10 +78,20 @@ async fn connect_and_talk(
             .map_err(|e| format!("connect {addr}: {e}"))?;
         return talk(stream, os, inv, json).await;
     }
+    if let Some(path) = target.strip_prefix("serial:") {
+        // The host end of a virtio-serial port (e.g. a QEMU chardev socket or a pty in tests).
+        let port = tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .await
+            .map_err(|e| format!("open {path}: {e}"))?;
+        return talk(port, os, inv, json).await;
+    }
     if let Some(rest) = target.strip_prefix("vsock:") {
         return vsock(rest, os, inv, json).await;
     }
-    Err("expected tcp:HOST:PORT or vsock:CID:PORT".into())
+    Err("expected tcp:HOST:PORT, vsock:CID:PORT or serial:PATH".into())
 }
 
 #[cfg(target_os = "linux")]

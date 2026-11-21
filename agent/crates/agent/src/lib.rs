@@ -66,7 +66,9 @@ where
 {
     let (mut reader, mut writer) = tokio::io::split(stream);
     let mut host_os: Option<HostOs> = None;
-    info!(%peer, "host connected");
+    // Logged on the first frame, not on open: a serial port with no host attached
+    // reads as an immediate end of stream, and that is not a connection.
+    let mut active = false;
 
     loop {
         let frame = match read_frame(&mut reader).await {
@@ -78,6 +80,11 @@ where
                 return Err(e.into());
             }
         };
+
+        if !active {
+            active = true;
+            info!(%peer, "host connected");
+        }
 
         let envelope = match decode(&frame) {
             Ok(env) => env,
@@ -92,7 +99,9 @@ where
         };
 
         match (envelope.body, host_os) {
-            (Body::Hello(hello), None) => {
+            // A repeated hello starts the session over. Serial ports have no disconnect
+            // signal, so a host app that restarts simply says hello again.
+            (Body::Hello(hello), _) => {
                 info!(%peer, host_os = ?hello.host_os, shell = %hello.shell_version, "hello");
                 host_os = Some(hello.host_os);
                 let ack = HelloAck {
@@ -100,14 +109,6 @@ where
                     distro_version: state.distro_version.clone(),
                 };
                 write_message(&mut writer, &Envelope::new(Body::HelloAck(ack))).await?;
-            }
-            (Body::Hello(_), Some(_)) => {
-                send_error(
-                    &mut writer,
-                    ErrorCode::UnexpectedMessage,
-                    "hello was already received",
-                )
-                .await?;
             }
             (Body::HostInventory(inventory), Some(os)) => {
                 let result = state.catalog.score(os, &inventory);
@@ -145,7 +146,9 @@ where
         }
     }
 
-    info!(%peer, "host disconnected");
+    if active {
+        info!(%peer, "host disconnected");
+    }
     Ok(())
 }
 

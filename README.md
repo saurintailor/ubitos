@@ -15,17 +15,18 @@ agent/           Rust workspace: protocol, scoring, ubit-agent daemon, ubit-host
 catalog/         YAML: which host apps map to which Linux replacements
 protocol/        JSON Schema + fixtures for the host <-> agent protocol (source of truth)
 hosts/macos/     Swift app on Virtualization.framework (Apple Silicon, macOS 14+)
-hosts/windows/   C# / WPF app on Hyper-V (Windows 11 Pro/Enterprise/Education)
+hosts/windows/   C# / WPF app: Hyper-V on Windows 11 Pro/Enterprise/Education,
+                 QEMU + Windows Hypervisor Platform on Windows 11 Home
 docs/            architecture notes and threat model
 ```
 
 ## How the pieces fit
 
 ```
- macOS app (Swift)            Windows app (C#)
- Virtualization.framework     Hyper-V (WMI) + vmconnect
-        |  vsock 7710                |  hv_sock -> vsock 7710
-        +-------------+--------------+
+ macOS app (Swift)          Windows app (C#)
+ Virtualization.framework   Hyper-V (Pro)          or  QEMU + WHPX (Home)
+        |  vsock 7710            |  hv_sock -> vsock 7710     |  virtio-serial
+        +------------------------+----------------------------+
                       v
         Guest: Ubuntu 26.04 + KDE Plasma
         ubit-agent (Rust, systemd) -> scores host inventory
@@ -71,12 +72,9 @@ cd hosts/macos
 
 ### Windows host
 
-Run once, as Administrator: `hosts\windows\scripts\setup-host.ps1`. Sign out and in
-again, then open `hosts\windows\Ubit.sln` in Visual Studio, or run
-`dotnet run --project hosts\windows\src\Ubit.App`.
-
-If VM creation from the app fails, `scripts\dev-create-vm.ps1` creates the same VM with
-the Hyper-V PowerShell module.
+See `hosts/windows/README.md`. In short: run `scripts\setup-home.ps1` (Windows Home) or
+`scripts\setup-host.ps1` (Pro and up) once as Administrator, then
+`dotnet run --project hosts\windows\src\Ubit.App`. The app picks QEMU or Hyper-V itself.
 
 ## Status
 
@@ -86,7 +84,7 @@ the Hyper-V PowerShell module.
 | M1 | Agent + scoring with tests | done: 18 tests; live interop with the Swift and C# clients |
 | M2 | Image configs | written and parsed by mkosi 27.1; first real build runs in CI |
 | M3 | macOS app | written; protocol and inventory tested (11 tests); VM code needs a Mac |
-| M4 | Windows app | written; core tested (27 tests); Hyper-V parts need a Windows PC |
+| M4 | Windows app | Hyper-V (Pro) and QEMU (Home) backends; core tested (34 tests); needs a run on Windows |
 | M5 | Same score on both hosts | pending M3 and M4 runs |
 
 ## License

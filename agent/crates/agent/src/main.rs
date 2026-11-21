@@ -1,19 +1,24 @@
 //! `ubit-agent`: the guest-side daemon. Run by systemd as the `ubit-agent` user.
+//!
+//! Transports (any number, via repeated `--listen`):
+//!   vsock:PORT     Virtualization.framework and Hyper-V hosts
+//!   serial:PATH    a virtio-serial port, for QEMU hosts without vsock (Windows Home)
+//!   tcp:HOST:PORT  development and tests only
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use clap::Parser;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use ubit_agent::{AgentState, report, serve_connection};
 use ubit_protocol::AGENT_VSOCK_PORT;
 use ubit_scoring::Catalog;
 
 #[derive(Debug, Clone)]
 enum Listen {
-    /// vsock port on any CID (production)
     Vsock(u32),
-    /// TCP address (development and tests only)
+    Serial(PathBuf),
     Tcp(String),
 }
 
@@ -26,19 +31,22 @@ impl std::str::FromStr for Listen {
                 .map(Listen::Vsock)
                 .map_err(|e| format!("bad vsock port: {e}"));
         }
+        if let Some(path) = s.strip_prefix("serial:") {
+            return Ok(Listen::Serial(PathBuf::from(path)));
+        }
         if let Some(addr) = s.strip_prefix("tcp:") {
             return Ok(Listen::Tcp(addr.to_string()));
         }
-        Err("expected vsock:PORT or tcp:HOST:PORT".into())
+        Err("expected vsock:PORT, serial:PATH or tcp:HOST:PORT".into())
     }
 }
 
 #[derive(Debug, Parser)]
 #[command(version, about = "ubit guest agent")]
 struct Args {
-    /// Where to listen: vsock:PORT, or tcp:HOST:PORT for development.
-    #[arg(long, default_value_t = format!("vsock:{AGENT_VSOCK_PORT}"))]
-    listen: String,
+    /// Where to listen (repeatable): vsock:PORT, serial:PATH, or tcp:HOST:PORT for development.
+    #[arg(long, default_values_t = [format!("vsock:{AGENT_VSOCK_PORT}")])]
+    listen: Vec<String>,
     /// Directory of catalog *.yaml files.
     #[arg(long, default_value = "/usr/share/ubit/catalog")]
     catalog: PathBuf,
@@ -68,64 +76,131 @@ async fn main() -> std::process::ExitCode {
 }
 
 async fn run(args: Args) -> Result<(), String> {
-    let listen: Listen = args.listen.parse()?;
+    let listens: Vec<Listen> = args
+        .listen
+        .iter()
+        .map(|s| s.parse())
+        .collect::<Result<_, _>>()?;
     let catalog = Catalog::load_dir(&args.catalog).map_err(|e| e.to_string())?;
     info!(entries = catalog.entries.len(), version = %catalog.version, "catalog loaded");
 
     if let Err(e) = report::write(&args.report_dir, &report::render_pending()).await {
         // Not fatal: scoring still works, the host still gets its result.
-        tracing::warn!(error = %e, "could not write the pending report");
+        warn!(error = %e, "could not write the pending report");
     }
 
     let state = Arc::new(AgentState::new(catalog, args.report_dir));
-
-    match listen {
-        Listen::Tcp(addr) => {
-            let listener = tokio::net::TcpListener::bind(&addr)
-                .await
-                .map_err(|e| format!("bind {addr}: {e}"))?;
-            ready(
-                &listener
-                    .local_addr()
-                    .map(|a| format!("tcp:{a}"))
-                    .unwrap_or(addr),
-            );
-            loop {
-                tokio::select! {
-                    accepted = listener.accept() => {
-                        let (stream, peer) = accepted.map_err(|e| e.to_string())?;
-                        spawn_session(stream, state.clone(), peer.to_string());
-                    }
-                    _ = shutdown_signal() => break,
-                }
+    let mut tasks = tokio::task::JoinSet::new();
+    for listen in listens {
+        match listen {
+            Listen::Tcp(addr) => {
+                let listener = tokio::net::TcpListener::bind(&addr)
+                    .await
+                    .map_err(|e| format!("bind {addr}: {e}"))?;
+                let shown = listener.local_addr().map(|a| a.to_string()).unwrap_or(addr);
+                info!("ubit-agent: listening on tcp:{shown}");
+                tasks.spawn(serve_tcp(listener, state.clone()));
+            }
+            Listen::Vsock(port) => {
+                tasks.spawn(serve_vsock(bind_vsock(port)?, state.clone()));
+                info!("ubit-agent: listening on vsock:{port}");
+            }
+            Listen::Serial(path) => {
+                info!("ubit-agent: listening on serial:{}", path.display());
+                tasks.spawn(serve_serial(path, state.clone()));
             }
         }
-        Listen::Vsock(port) => serve_vsock(port, state).await?,
+    }
+    #[cfg(target_os = "linux")]
+    let _ = sd_notify::notify(&[sd_notify::NotifyState::Ready]);
+
+    tokio::select! {
+        _ = shutdown_signal() => {}
+        Some(ended) = tasks.join_next() => {
+            if let Ok(Err(e)) = ended {
+                return Err(e);
+            }
+        }
     }
     info!("stopping");
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
-async fn serve_vsock(port: u32, state: Arc<AgentState>) -> Result<(), String> {
-    use tokio_vsock::{VMADDR_CID_ANY, VsockAddr, VsockListener};
-    let listener = VsockListener::bind(VsockAddr::new(VMADDR_CID_ANY, port))
-        .map_err(|e| format!("bind vsock:{port}: {e}"))?;
-    ready(&format!("vsock:{port}"));
+async fn serve_tcp(
+    listener: tokio::net::TcpListener,
+    state: Arc<AgentState>,
+) -> Result<(), String> {
     loop {
-        tokio::select! {
-            accepted = listener.accept() => {
-                let (stream, peer) = accepted.map_err(|e| e.to_string())?;
-                spawn_session(stream, state.clone(), format!("vsock:{}:{}", peer.cid(), peer.port()));
-            }
-            _ = shutdown_signal() => return Ok(()),
-        }
+        let (stream, peer) = listener.accept().await.map_err(|e| e.to_string())?;
+        spawn_session(stream, state.clone(), peer.to_string());
+    }
+}
+
+#[cfg(target_os = "linux")]
+type VsockListener = tokio_vsock::VsockListener;
+#[cfg(not(target_os = "linux"))]
+type VsockListener = ();
+
+#[cfg(target_os = "linux")]
+fn bind_vsock(port: u32) -> Result<VsockListener, String> {
+    use tokio_vsock::{VMADDR_CID_ANY, VsockAddr};
+    VsockListener::bind(VsockAddr::new(VMADDR_CID_ANY, port))
+        .map_err(|e| format!("bind vsock:{port}: {e}"))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn bind_vsock(_port: u32) -> Result<VsockListener, String> {
+    Err("vsock is only available on Linux; use --listen tcp:127.0.0.1:7710".into())
+}
+
+#[cfg(target_os = "linux")]
+async fn serve_vsock(listener: VsockListener, state: Arc<AgentState>) -> Result<(), String> {
+    loop {
+        let (stream, peer) = listener.accept().await.map_err(|e| e.to_string())?;
+        spawn_session(
+            stream,
+            state.clone(),
+            format!("vsock:{}:{}", peer.cid(), peer.port()),
+        );
     }
 }
 
 #[cfg(not(target_os = "linux"))]
-async fn serve_vsock(_port: u32, _state: Arc<AgentState>) -> Result<(), String> {
-    Err("vsock is only available on Linux; use --listen tcp:127.0.0.1:7710".into())
+async fn serve_vsock(_listener: VsockListener, _state: Arc<AgentState>) -> Result<(), String> {
+    Ok(())
+}
+
+/// Serves a virtio-serial port, one host session at a time. The port is a single
+/// character device, so there is no accept: open it, talk until the host goes away
+/// (reads end), and open it again. A missing device is waited for, not an error,
+/// because the same image also boots on hosts that have no such port.
+async fn serve_serial(path: PathBuf, state: Arc<AgentState>) -> Result<(), String> {
+    let peer = format!("serial:{}", path.display());
+    let mut warned = false;
+    loop {
+        match tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .await
+        {
+            Ok(port) => {
+                warned = false;
+                if let Err(e) = serve_connection(port, state.clone(), peer.clone()).await {
+                    info!(%peer, error = %e, "session ended");
+                }
+                // No host attached reads as end of stream; don't spin.
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            Err(e) => {
+                if e.kind() != std::io::ErrorKind::NotFound && !warned {
+                    warn!(%peer, error = %e, "cannot open the serial port; will keep trying");
+                    warned = true;
+                }
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+        }
+    }
 }
 
 fn spawn_session<S>(stream: S, state: Arc<AgentState>, peer: String)
@@ -137,13 +212,6 @@ where
             info!(%peer, error = %e, "session ended");
         }
     });
-}
-
-/// Logs the line the image smoke test waits for, then tells systemd we are up.
-fn ready(addr: &str) {
-    info!("ubit-agent: listening on {addr}");
-    #[cfg(target_os = "linux")]
-    let _ = sd_notify::notify(&[sd_notify::NotifyState::Ready]);
 }
 
 async fn shutdown_signal() {

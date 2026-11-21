@@ -5,7 +5,6 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using Ubit.Core.Protocol;
 using Ubit.Windows;
-using Ubit.Windows.Agent;
 using Ubit.Windows.HyperV;
 using Ubit.Windows.Inventory;
 
@@ -18,13 +17,10 @@ public partial class MainWindow : Window
     /// <summary>Disk the guest gets; it grows its root partition to fill it on boot.</summary>
     private const ulong DiskSize = 64UL << 30;
 
-    private static readonly string VmDirectory =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ubit", "vm");
-    private static readonly string VhdxPath = Path.Combine(VmDirectory, "ubit.vhdx");
     private static readonly string ShellVersion =
         Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.1.0";
 
-    private HyperVManager? hyperV;
+    private IVmBackend? backend;
     private CancellationTokenSource? agentCts;
 
     public MainWindow()
@@ -41,18 +37,26 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        var problems = HostSetup.Problems();
+        await RunAsync(() => { backend = VmBackends.Choose(); }, "Looking for a hypervisor…").ConfigureAwait(true);
+        if (backend is null)
+        {
+            return;
+        }
+        Title = $"ubit · {backend.Name}";
+        var problems = await Task.Run(backend.SetupProblems).ConfigureAwait(true);
         if (problems.Count > 0)
         {
             SetupText.Text = string.Join(Environment.NewLine, problems);
+            SetupHint.Text = backend is QemuBackend
+                ? @"Run scripts\setup-home.ps1 as Administrator, then restart Windows if it asks."
+                : @"Run scripts\setup-host.ps1 as Administrator, then sign out and back in.";
             SetupBanner.Visibility = Visibility.Visible;
         }
-        await RunAsync(() => { hyperV = new HyperVManager(); }, "Connecting to Hyper-V…").ConfigureAwait(true);
         Refresh();
         // The VM may still be running from an earlier session of this app: reconnect.
-        if (hyperV?.GetVm() is { State: VmState.Running } running)
+        if (backend.GetVm() is { State: VmState.Running } running)
         {
-            await TalkToAgentAsync(running.Id).ConfigureAwait(true);
+            await TalkToAgentAsync(running).ConfigureAwait(true);
         }
     }
 
@@ -61,26 +65,15 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "Choose the ubit image",
-            Filter = "Hyper-V disk (*.vhdx)|*.vhdx",
+            Filter = "ubit Windows image (*.vhdx)|*.vhdx",
         };
         if (dialog.ShowDialog(this) != true)
         {
             return;
         }
         var source = dialog.FileName;
-        await RunAsync(() =>
-        {
-            var vm = RequireHyperV().GetVm();
-            if (vm.State == VmState.Running)
-            {
-                throw new InvalidOperationException("Shut ubit down before replacing its image.");
-            }
-            RequireHyperV().Delete();
-            Directory.CreateDirectory(VmDirectory);
-            File.Copy(source, VhdxPath, overwrite: true);
-            RequireHyperV().ResizeDisk(VhdxPath, DiskSize);
-            RequireHyperV().EnsureVm(VhdxPath);
-        }, "Copying the image and creating the VM…").ConfigureAwait(true);
+        await RunAsync(() => RequireBackend().Import(source, DiskSize), "Copying the image and creating the VM…")
+            .ConfigureAwait(true);
         Refresh();
     }
 
@@ -88,41 +81,41 @@ public partial class MainWindow : Window
     {
         await RunAsync(() =>
         {
-            var vm = RequireHyperV().GetVm();
-            if (vm.State == VmState.Missing)
+            var b = RequireBackend();
+            if (b.GetVm().State == VmState.Missing)
             {
                 throw new InvalidOperationException("Choose an image first.");
             }
-            if (vm.State != VmState.Running)
-            {
-                RequireHyperV().Start();
-            }
+            b.Start();
         }, "Starting ubit…").ConfigureAwait(true);
         Refresh();
-        if (hyperV?.GetVm() is { State: VmState.Running } running)
+        if (backend?.GetVm() is { State: VmState.Running } running)
         {
-            HostSetup.OpenDesktop(running.Name);
-            await TalkToAgentAsync(running.Id).ConfigureAwait(true);
+            if (!backend.OpensOwnWindow)
+            {
+                backend.OpenDesktop(running);
+            }
+            await TalkToAgentAsync(running).ConfigureAwait(true);
         }
     }
 
     private void OnOpenDesktop(object sender, RoutedEventArgs e)
     {
-        if (hyperV?.GetVm() is { State: VmState.Running } vm)
+        if (backend?.GetVm() is { State: VmState.Running } vm)
         {
-            HostSetup.OpenDesktop(vm.Name);
+            backend.OpenDesktop(vm);
         }
     }
 
     private async void OnShutdown(object sender, RoutedEventArgs e)
     {
         agentCts?.Cancel();
-        await RunAsync(() => RequireHyperV().Shutdown(), "Shutting down…").ConfigureAwait(true);
+        await RunAsync(() => RequireBackend().Shutdown(), "Shutting down…").ConfigureAwait(true);
         Refresh();
     }
 
     /// <summary>Sends this PC's app list to ubit-agent and shows the score.</summary>
-    private async Task TalkToAgentAsync(Guid vmId)
+    private async Task TalkToAgentAsync(VmInfo vm)
     {
         agentCts?.Cancel();
         agentCts?.Dispose();
@@ -131,16 +124,18 @@ public partial class MainWindow : Window
         AgentText.Text = "Waiting for ubit to finish starting…";
         try
         {
-            await using var client = await AgentClient.ConnectAsync(vmId, TimeSpan.FromMinutes(3), ct).ConfigureAwait(true);
-            var ack = await client.HandshakeAsync(ShellVersion, ct).ConfigureAwait(true);
-            AgentText.Text = "Scoring your apps…";
-            var inventory = await Task.Run(RegistryInventory.Scan, ct).ConfigureAwait(true);
-            var result = await client.SubmitAsync(inventory, ct).ConfigureAwait(true);
-            ShowScore(result, inventory.Apps.Count, ack);
+            var (client, ack) = await RequireBackend().ConnectAgentAsync(vm, ShellVersion, ct).ConfigureAwait(true);
+            await using (client.ConfigureAwait(true))
+            {
+                AgentText.Text = "Scoring your apps…";
+                var inventory = await Task.Run(RegistryInventory.Scan, ct).ConfigureAwait(true);
+                var result = await client.SubmitAsync(inventory, ct).ConfigureAwait(true);
+                ShowScore(result, inventory.Apps.Count, ack);
+            }
         }
         catch (OperationCanceledException)
         {
-            AgentText.Text = "Stopped waiting for the agent.";
+            AgentText.Text = ct.IsCancellationRequested ? "Stopped waiting for the agent." : "ubit did not answer in time.";
         }
         catch (Exception ex) when (ex is ProtocolException or System.Net.Sockets.SocketException or IOException)
         {
@@ -159,26 +154,29 @@ public partial class MainWindow : Window
 
     private void Refresh()
     {
-        var vm = hyperV?.GetVm();
+        var vm = backend?.GetVm();
+        var ownWindow = backend?.OpensOwnWindow == true;
         StatusText.Text = vm?.State switch
         {
-            null => "Hyper-V is not available.",
-            VmState.Missing => File.Exists(VhdxPath) ? "Image copied; the VM is not created yet." : "No image yet. Choose the ubit .vhdx file.",
+            null => "No hypervisor is available. See the setup note above.",
+            VmState.Missing => "No image yet. Choose the ubit .vhdx file.",
             VmState.Off => "Ready. Start ubit to try it.",
-            VmState.Running => "Running. Open the desktop and sign in.",
+            VmState.Running => ownWindow
+                ? "Running in its own window. It signs in by itself."
+                : "Running. Open the desktop and sign in.",
             _ => "Busy (saved, paused or changing state).",
         };
         var exists = vm is not null && vm.State != VmState.Missing;
         StartButton.IsEnabled = exists && vm!.State != VmState.Running;
-        DesktopButton.IsEnabled = vm?.State == VmState.Running;
+        DesktopButton.IsEnabled = vm?.State == VmState.Running && !ownWindow;
         StopButton.IsEnabled = vm?.State == VmState.Running;
-        ChooseButton.IsEnabled = hyperV is not null && vm?.State != VmState.Running;
+        ChooseButton.IsEnabled = backend is not null && vm?.State != VmState.Running;
     }
 
-    private HyperVManager RequireHyperV() =>
-        hyperV ?? throw new InvalidOperationException("Hyper-V is not available. See the setup note above.");
+    private IVmBackend RequireBackend() =>
+        backend ?? throw new InvalidOperationException("No hypervisor is available. See the setup note above.");
 
-    /// <summary>Runs blocking Hyper-V work off the UI thread, with a busy bar and an error dialog.</summary>
+    /// <summary>Runs blocking VM work off the UI thread, with a busy bar and an error dialog.</summary>
     private async Task RunAsync(Action work, string busyText)
     {
         Busy.Visibility = Visibility.Visible;
@@ -189,7 +187,8 @@ public partial class MainWindow : Window
             await Task.Run(work).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is HyperVException or InvalidOperationException or IOException
-                                   or UnauthorizedAccessException or System.Management.ManagementException)
+                                   or UnauthorizedAccessException or System.Management.ManagementException
+                                   or System.ComponentModel.Win32Exception)
         {
             MessageBox.Show(this, ex.Message, "ubit", MessageBoxButton.OK, MessageBoxImage.Warning);
         }

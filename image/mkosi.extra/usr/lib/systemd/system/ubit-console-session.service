@@ -1,0 +1,16 @@
+[Unit]
+Description=ubit: sign in on the VM's own display when the host asks for it
+Documentation=https://github.com/saurintailor/ubitos
+# Hosts that show the VM's display directly (the QEMU path on Windows Home) add
+# "ubit.console=1" to the kernel command line through SMBIOS. Hyper-V uses xrdp
+# instead and must not get a console session for the same user.
+Before=display-manager.service
+DefaultDependencies=no
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/ubit/console-session
+
+[Install]
+WantedBy=display-manager.service

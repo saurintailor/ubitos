@@ -53,6 +53,7 @@ assets = [
     ["target/release/ubit-agent", "usr/bin/", "755"],
     ["../../../catalog/*.yaml", "usr/share/ubit/catalog/", "644"],
     ["packaging/ubit-open-report", "usr/libexec/ubit/ubit-open-report", "755"],
+    ["packaging/60-ubit-agent.rules", "usr/lib/udev/rules.d/60-ubit-agent.rules", "644"],
     ["packaging/ubit-report.desktop", "etc/xdg/autostart/ubit-report.desktop", "644"],
 ]
 systemd-units = { unit-scripts = "packaging", unit-name = "ubit-agent", enable = true, start = false }
