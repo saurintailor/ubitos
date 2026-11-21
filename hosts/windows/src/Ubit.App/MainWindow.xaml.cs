@@ -31,10 +31,21 @@ public partial class MainWindow : Window
         // Catch state changes made outside the app, e.g. shutting down from inside ubit.
         stateTimer.Tick += async (_, _) =>
         {
-            if (!busy && backend is not null)
+            if (busy || backend is null)
+            {
+                return;
+            }
+            try
             {
                 var state = await Task.Run(() => backend.GetVm()).ConfigureAwait(true);
                 Refresh(state);
+            }
+            catch (Exception ex) when (ex is HyperVException or System.Management.ManagementException
+                                       or InvalidOperationException or IOException or UnauthorizedAccessException
+                                       or System.Runtime.InteropServices.COMException)
+            {
+                // Keep the last known state; a polling hiccup must never close the app.
+                StatusText.Text = $"Could not read the VM state: {ex.Message}";
             }
         };
     }
