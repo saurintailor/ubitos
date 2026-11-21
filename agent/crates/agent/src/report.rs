@@ -212,10 +212,13 @@ fn status_class(s: Status) -> &'static str {
     }
 }
 
-/// Writes `index.html` atomically (temp file, then rename).
+/// Writes `index.html` atomically: a temp file unique to this write, then rename.
+/// Concurrent sessions never share a temp file; the last rename wins.
 pub async fn write(dir: &Path, html: &str) -> std::io::Result<()> {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     tokio::fs::create_dir_all(dir).await?;
-    let tmp = dir.join(".index.html.tmp");
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let tmp = dir.join(format!(".index.html.{}.{n}.tmp", std::process::id()));
     tokio::fs::write(&tmp, html).await?;
     tokio::fs::rename(&tmp, dir.join("index.html")).await
 }
@@ -253,6 +256,30 @@ mod tests {
         assert!(html.contains("Safe &amp; sound"));
         assert!(html.contains("&quot;quoted&quot;"));
         assert!(html.contains("1970-01-01T00:00:00Z"));
+    }
+
+    #[tokio::test]
+    async fn concurrent_writes_never_mix_and_leave_no_temp_files() {
+        let dir = std::env::temp_dir().join(format!("ubit-report-{}", std::process::id()));
+        let pages: Vec<String> = (0..32)
+            .map(|i| format!("page-{i}-{}", "x".repeat(50_000)))
+            .collect();
+        let mut set = tokio::task::JoinSet::new();
+        for page in pages.clone() {
+            let dir = dir.clone();
+            set.spawn(async move { write(&dir, &page).await });
+        }
+        while let Some(r) = set.join_next().await {
+            r.unwrap().unwrap();
+        }
+        let final_page = std::fs::read_to_string(dir.join("index.html")).unwrap();
+        assert!(pages.contains(&final_page), "report is a mix of writers");
+        let leftovers = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter(|e| e.as_ref().unwrap().file_name() != "index.html")
+            .count();
+        assert_eq!(leftovers, 0);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

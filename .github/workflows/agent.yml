@@ -37,6 +37,8 @@ jobs:
         run: |
           cargo install cargo-deb --locked --version 3.8.0
           cargo deb -p ubit-agent --locked
+      - name: Build the host simulator (used by the image smoke test)
+        run: cargo build --release --locked -p ubit-agent --bin ubit-hostsim
       - uses: actions/upload-artifact@v4
         with:
           name: ubit-agent-${{ matrix.arch }}

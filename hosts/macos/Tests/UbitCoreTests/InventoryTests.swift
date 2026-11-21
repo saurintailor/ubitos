@@ -56,4 +56,18 @@ final class InventoryTests: XCTestCase {
         try bundle.remove()
         XCTAssertFalse(bundle.hasDisk)
     }
+
+    func testFailedImportKeepsTheExistingDiskAndReimportOfItselfWorks() throws {
+        let bundle = VMBundle(root: root.appendingPathComponent("vm"))
+        let first = root.appendingPathComponent("first.img")
+        try Data(repeating: 1, count: 4096).write(to: first)
+        try bundle.importImage(from: first, size: 8192)
+
+        XCTAssertThrowsError(try bundle.importImage(from: root.appendingPathComponent("missing.img"), size: 8192))
+        XCTAssertTrue(bundle.hasDisk, "a failed import must not delete the current disk")
+        XCTAssertEqual(try Data(contentsOf: bundle.disk).first, 1)
+
+        try bundle.importImage(from: bundle.disk, size: 8192)  // choosing the bundle's own disk
+        XCTAssertEqual(try Data(contentsOf: bundle.disk).first, 1)
+    }
 }

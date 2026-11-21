@@ -49,6 +49,11 @@ public partial class MainWindow : Window
         }
         await RunAsync(() => { hyperV = new HyperVManager(); }, "Connecting to Hyper-V…").ConfigureAwait(true);
         Refresh();
+        // The VM may still be running from an earlier session of this app: reconnect.
+        if (hyperV?.GetVm() is { State: VmState.Running } running)
+        {
+            await TalkToAgentAsync(running.Id).ConfigureAwait(true);
+        }
     }
 
     private async void OnChooseImage(object sender, RoutedEventArgs e)
