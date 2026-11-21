@@ -13,6 +13,7 @@ One [mkosi](https://github.com/systemd/mkosi) config builds both guest images:
 pip install "git+https://github.com/systemd/mkosi@v27.1"
 scripts/fetch-mozilla-key.sh                 # re-verifies the committed Mozilla APT key
 mkdir -p mkosi.packages && cp <ubit-agent_*.deb for the target arch> mkosi.packages/
+mkdir -p mkosi.output
 mkosi --profile=windows -f build             # or --profile=mac (build arm64 on an arm64 machine)
 python3 scripts/check-manifest.py mkosi.output/ubit_0.1.0.manifest
 scripts/package.sh windows                   # -> dist/

@@ -43,7 +43,7 @@ jobs:
       - name: Re-check Mozilla's APT key
         run: scripts/fetch-mozilla-key.sh
       - name: Build
-        run: mkosi --profile=${{ matrix.profile }} -f build
+        run: mkdir -p mkosi.output && mkosi --profile=${{ matrix.profile }} -f build
       - name: Check packages
         run: python3 scripts/check-manifest.py "$(find mkosi.output -maxdepth 1 -name '*.manifest' | head -n 1)"
       - name: Smoke test (boot + agent over vsock)
