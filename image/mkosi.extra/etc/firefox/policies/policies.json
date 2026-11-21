@@ -1,0 +1,11 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "file:///var/lib/ubit/report/index.html",
+    "FirefoxHome": { "SponsoredTopSites": false, "SponsoredPocket": false, "Locked": false },
+    "UserMessaging": { "SkipOnboarding": true, "MoreFromMozilla": false, "FeatureRecommendations": false, "Locked": false }
+  }
+}

@@ -1,0 +1,24 @@
+name: macos-host
+
+on:
+  push:
+    paths: ["hosts/macos/**", "protocol/**", ".github/workflows/macos.yml"]
+  pull_request:
+    paths: ["hosts/macos/**", "protocol/**", ".github/workflows/macos.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15   # Apple Silicon
+    defaults:
+      run:
+        working-directory: hosts/macos
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: swift build -c release
+      - run: swift test
+      - name: Sign ad hoc with the virtualization entitlement
+        run: codesign --force --sign - --entitlements UbitMac.entitlements .build/release/UbitMac && codesign -d --entitlements - .build/release/UbitMac

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=ubit readiness report
+Comment=Opens your switch-readiness report after login
+Exec=/usr/libexec/ubit/ubit-open-report
+NoDisplay=true
+X-KDE-autostart-phase=2

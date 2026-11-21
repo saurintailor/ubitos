@@ -1,0 +1,24 @@
+#!/bin/sh
+# Runs inside the image after packages and extra trees are installed (both profiles).
+set -eu
+
+# Trial user. v0 ONLY: the password is fixed and documented in image/README.md.
+# A first-boot setup screen replaces this before any public release.
+if ! id trial >/dev/null 2>&1; then
+    useradd --create-home --shell /bin/bash --comment "Trial user" --groups sudo,audio,video trial
+    echo 'trial:trial' | chpasswd
+fi
+
+# Fail the build if anything that phones home slipped in through a dependency.
+for pkg in snapd ubuntu-report popularity-contest apport whoopsie ubuntu-pro-client; do
+    if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "debloat check failed: $pkg is installed" >&2
+        exit 1
+    fi
+done
+case "$(dpkg-query -W -f='${Version}' firefox 2>/dev/null || true)" in
+    *snap*|"") echo "firefox must come from packages.mozilla.org, not the snap" >&2; exit 1 ;;
+esac
+
+systemctl enable ubit-agent.service NetworkManager.service sddm.service
+systemctl set-default graphical.target

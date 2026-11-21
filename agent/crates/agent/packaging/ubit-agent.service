@@ -1,0 +1,47 @@
+[Unit]
+Description=ubit guest agent (talks to the host app over vsock)
+Documentation=https://github.com/saurintailor/ubitos
+After=local-fs.target systemd-sysusers.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/ubit-agent --listen vsock:7710 --catalog /usr/share/ubit/catalog --report-dir /var/lib/ubit/report
+User=ubit-agent
+Group=ubit-agent
+Restart=on-failure
+RestartSec=2s
+
+# The report must be readable by the desktop user.
+StateDirectory=ubit ubit/report
+StateDirectoryMode=0755
+UMask=0022
+
+# Hardening: the agent needs vsock and nothing else.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_VSOCK AF_UNIX
+IPAddressDeny=any
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "type": "score_result",
+  "score": 72,
+  "items": [
+    {"catalog_id": "design.photoshop", "category": "apps", "from": "Adobe Photoshop 2026", "to": "GIMP or Krita", "status": "workaround"},
+    {"catalog_id": "browser.chrome", "category": "apps", "from": "Google Chrome", "to": "Firefox", "status": "native"}
+  ],
+  "unknown_apps": ["Contoso Label Printer 4.2"],
+  "catalog_version": "apps@2026.11.1"
+}

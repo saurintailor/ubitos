@@ -1,0 +1,71 @@
+<Window x:Class="Ubit.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ubit" Width="760" Height="640" MinWidth="620" MinHeight="520"
+        Background="{StaticResource Page}" FontFamily="Segoe UI" FontSize="14"
+        Foreground="{StaticResource Ink}" Loaded="OnLoaded">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24">
+            <TextBlock Text="Try ubit on this PC" FontSize="26" FontWeight="SemiBold"/>
+            <TextBlock Margin="0,4,0,20" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
+                       Text="ubit runs in a Hyper-V window next to your Windows apps. Nothing on Windows is changed, and your app list never leaves this PC."/>
+
+            <Border x:Name="SetupBanner" Background="{StaticResource WarnBg}" CornerRadius="8" Padding="16,12" Margin="0,0,0,16" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="One-time setup needed" FontWeight="SemiBold" Foreground="{StaticResource WarnInk}"/>
+                    <TextBlock x:Name="SetupText" TextWrapping="Wrap" Foreground="{StaticResource WarnInk}" Margin="0,4,0,0"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource WarnInk}" Margin="0,6,0,0"
+                               Text="Run scripts\setup-host.ps1 as Administrator, then sign out and back in."/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Virtual machine" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="StatusText" Margin="0,6,0,14" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Text="Checking…"/>
+                    <WrapPanel>
+                        <Button x:Name="ChooseButton" Content="Choose image…" Click="OnChooseImage"/>
+                        <Button x:Name="StartButton" Content="Start" Style="{StaticResource Primary}" Click="OnStart"/>
+                        <Button x:Name="DesktopButton" Content="Open desktop" Click="OnOpenDesktop"/>
+                        <Button x:Name="StopButton" Content="Shut down" Click="OnShutdown"/>
+                    </WrapPanel>
+                    <ProgressBar x:Name="Busy" IsIndeterminate="True" Height="4" Margin="0,14,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="Switch readiness" FontSize="16" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,4">
+                        <TextBlock x:Name="ScoreText" Text="–" FontSize="40" FontWeight="Bold"/>
+                        <TextBlock Text=" of 100" VerticalAlignment="Bottom" Margin="4,0,0,10" Foreground="{StaticResource Muted}"/>
+                    </StackPanel>
+                    <TextBlock x:Name="AgentText" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
+                               Text="Start ubit to see how many of your apps work there."/>
+                    <ItemsControl x:Name="Items" Margin="0,12,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding From}"/>
+                                        <TextBlock Text="{Binding To, StringFormat=→ {0}}" Foreground="{StaticResource Muted}" FontSize="12"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" CornerRadius="10" Padding="10,2" VerticalAlignment="Center" Background="{Binding Badge}">
+                                        <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding BadgeInk}"/>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
+                       Text="The full report opens inside ubit after you sign in (user: trial, password: trial in this preview)."/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

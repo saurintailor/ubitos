@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "type": "host_inventory",
+  "apps": [
+    {"id": "Google Chrome", "name": "Google Chrome", "source": "uninstall-hklm"},
+    {"id": "O365ProPlusRetail - en-us", "name": "Microsoft 365 Apps for enterprise - en-us", "source": "uninstall-hklm"},
+    {"id": "Slack", "name": "Slack", "source": "uninstall-hkcu"},
+    {"id": "Spotify", "name": "Spotify", "source": "uninstall-hkcu"},
+    {"id": "{6F320B93-EE3C-4826-85E0-ADF79F8D4C61}", "name": "Microsoft OneDrive", "source": "uninstall-hkcu"},
+    {"id": "Adobe Photoshop 2026", "name": "Adobe Photoshop 2026", "source": "uninstall-hklm"},
+    {"id": "{1F1C2DFC-2D24-3E06-BCB8-725134ADF989}", "name": "Contoso Label Printer 4.2", "source": "uninstall-hklm"}
+  ],
+  "default_browser": "ChromeHTML",
+  "default_mail": "Outlook.URL.mailto.15"
+}
