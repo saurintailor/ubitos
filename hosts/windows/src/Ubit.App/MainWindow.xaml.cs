@@ -22,14 +22,26 @@ public partial class MainWindow : Window
 
     private IVmBackend? backend;
     private CancellationTokenSource? agentCts;
+    private readonly System.Windows.Threading.DispatcherTimer stateTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private bool busy;
 
     public MainWindow()
     {
         InitializeComponent();
+        // Catch state changes made outside the app, e.g. shutting down from inside ubit.
+        stateTimer.Tick += async (_, _) =>
+        {
+            if (!busy && backend is not null)
+            {
+                var state = await Task.Run(() => backend.GetVm()).ConfigureAwait(true);
+                Refresh(state);
+            }
+        };
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        stateTimer.Stop();
         agentCts?.Cancel();
         agentCts?.Dispose();
         base.OnClosed(e);
@@ -53,6 +65,7 @@ public partial class MainWindow : Window
             SetupBanner.Visibility = Visibility.Visible;
         }
         Refresh();
+        stateTimer.Start();
         // The VM may still be running from an earlier session of this app: reconnect.
         if (backend.GetVm() is { State: VmState.Running } running)
         {
@@ -152,9 +165,10 @@ public partial class MainWindow : Window
         Items.ItemsSource = result.Items.Select(i => new ItemRow(i)).ToList();
     }
 
-    private void Refresh()
+    private void Refresh() => Refresh(backend?.GetVm());
+
+    private void Refresh(VmInfo? vm)
     {
-        var vm = backend?.GetVm();
         var ownWindow = backend?.OpensOwnWindow == true;
         StatusText.Text = vm?.State switch
         {
@@ -179,6 +193,7 @@ public partial class MainWindow : Window
     /// <summary>Runs blocking VM work off the UI thread, with a busy bar and an error dialog.</summary>
     private async Task RunAsync(Action work, string busyText)
     {
+        busy = true;
         Busy.Visibility = Visibility.Visible;
         StatusText.Text = busyText;
         IsEnabled = false;
@@ -196,6 +211,7 @@ public partial class MainWindow : Window
         {
             IsEnabled = true;
             Busy.Visibility = Visibility.Collapsed;
+            busy = false;
         }
     }
 
