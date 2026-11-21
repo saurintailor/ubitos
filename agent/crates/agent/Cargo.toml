@@ -1,0 +1,59 @@
+[package]
+name = "ubit-agent"
+description = "ubit guest agent: answers the host over vsock and scores its app inventory"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+default-run = "ubit-agent"
+
+[[bin]]
+name = "ubit-agent"
+path = "src/main.rs"
+
+[[bin]]
+name = "ubit-hostsim"
+path = "src/bin/ubit-hostsim.rs"
+
+[dependencies]
+ubit-protocol.workspace = true
+ubit-scoring.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "net", "io-util", "time", "signal", "fs", "sync"] }
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+humantime.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tokio-vsock.workspace = true
+sd-notify.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
+
+# `cargo deb -p ubit-agent` builds the package the image installs.
+[package.metadata.deb]
+name = "ubit-agent"
+maintainer = "ubit contributors"
+copyright = "2026 ubit contributors"
+license-file = ["../../../LICENSE", "0"]
+extended-description = "Listens on vsock port 7710 for the ubit host app, scores the host's app list against the local catalog, and writes a readiness report. Never opens a network port."
+section = "admin"
+priority = "optional"
+depends = "$auto, systemd, xdg-utils"
+maintainer-scripts = "packaging"
+# packaging/ubit-agent.sysusers and packaging/ubit-agent.service are picked up through
+# systemd-units below; cargo-deb installs them and adds the postinst steps.
+assets = [
+    ["target/release/ubit-agent", "usr/bin/", "755"],
+    ["../../../catalog/*.yaml", "usr/share/ubit/catalog/", "644"],
+    ["packaging/ubit-open-report", "usr/libexec/ubit/ubit-open-report", "755"],
+    ["packaging/60-ubit-agent.rules", "usr/lib/udev/rules.d/60-ubit-agent.rules", "644"],
+    ["packaging/ubit-report.desktop", "etc/xdg/autostart/ubit-report.desktop", "644"],
+]
+systemd-units = { unit-scripts = "packaging", unit-name = "ubit-agent", enable = true, start = false }

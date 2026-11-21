@@ -1,0 +1,25 @@
+# Rust
+agent/target/
+
+# mkosi
+image/mkosi.output/
+image/mkosi.cache/
+image/mkosi.packages/
+image/dist/
+
+# Swift
+hosts/macos/.build/
+hosts/macos/.swiftpm/
+hosts/macos/*.img
+
+# .NET
+hosts/windows/**/bin/
+hosts/windows/**/obj/
+hosts/windows/.vs/
+*.user
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

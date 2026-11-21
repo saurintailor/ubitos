@@ -1,0 +1,19 @@
+[package]
+name = "ubit-protocol"
+description = "Messages and framing for the ubit host <-> agent protocol (v1)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "io-util"] }
+
+[lints]
+workspace = true

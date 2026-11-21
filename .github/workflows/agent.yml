@@ -1,0 +1,48 @@
+name: agent
+
+on:
+  push:
+    paths: ["agent/**", "catalog/**", "protocol/**", ".github/workflows/agent.yml"]
+  pull_request:
+    paths: ["agent/**", "catalog/**", "protocol/**", ".github/workflows/agent.yml"]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - name: Build the .deb
+        run: |
+          cargo install cargo-deb --locked --version 3.8.0
+          cargo deb -p ubit-agent --locked
+      - name: Build the host simulator (used by the image smoke test)
+        run: cargo build --release --locked -p ubit-agent --bin ubit-hostsim
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ubit-agent-${{ matrix.arch }}
+          path: |
+            agent/target/debian/ubit-agent_*.deb
+            agent/target/release/ubit-hostsim
+          if-no-files-found: error

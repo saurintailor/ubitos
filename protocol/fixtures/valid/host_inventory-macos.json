@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "type": "host_inventory",
+  "apps": [
+    {"id": "com.google.Chrome", "name": "Google Chrome", "source": "applications"},
+    {"id": "com.microsoft.Word", "name": "Microsoft Word", "source": "applications"},
+    {"id": "com.microsoft.Excel", "name": "Microsoft Excel", "source": "applications"},
+    {"id": "com.tinyspeck.slackmacgap", "name": "Slack", "source": "applications"},
+    {"id": "com.spotify.client", "name": "Spotify", "source": "applications"},
+    {"id": "com.microsoft.OneDrive-mac", "name": "OneDrive", "source": "applications"},
+    {"id": "com.adobe.Photoshop", "name": "Adobe Photoshop 2026", "source": "applications"},
+    {"id": "com.example.labelprinter", "name": "Contoso Label Printer", "source": "applications"}
+  ],
+  "default_browser": "com.google.chrome",
+  "default_mail": null
+}

@@ -1,0 +1,6 @@
+// Stop "authentication required to create a color profile" prompts in xrdp sessions.
+polkit.addRule(function (action, subject) {
+    if (action.id.indexOf("org.freedesktop.color-manager.") === 0 && subject.isInGroup("users")) {
+        return polkit.Result.YES;
+    }
+});

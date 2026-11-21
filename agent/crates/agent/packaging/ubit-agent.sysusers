@@ -1,0 +1,2 @@
+# Dedicated, unprivileged user for ubit-agent.
+u ubit-agent - "ubit guest agent" /var/lib/ubit

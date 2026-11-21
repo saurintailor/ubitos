@@ -1,0 +1,11 @@
+#!/bin/sh
+# Opens the local readiness report once per login session.
+# The agent writes a "waiting" page at start-up, so the file normally exists already.
+report=/var/lib/ubit/report/index.html
+i=0
+while [ ! -f "$report" ] && [ "$i" -lt 30 ]; do
+    sleep 1
+    i=$((i + 1))
+done
+[ -f "$report" ] && exec xdg-open "file://$report"
+exit 0

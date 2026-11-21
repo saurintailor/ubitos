@@ -1,0 +1,4 @@
+# ubit ships no snaps. Keep snapd from coming back through a dependency.
+Package: snapd
+Pin: release a=*
+Pin-Priority: -10

@@ -1,0 +1,2 @@
+# The ubit agent's virtio-serial port (QEMU hosts such as Windows Home). Only the agent may use it.
+SUBSYSTEM=="virtio-ports", ATTR{name}=="org.ubit.agent.0", OWNER="ubit-agent", GROUP="ubit-agent", MODE="0600"

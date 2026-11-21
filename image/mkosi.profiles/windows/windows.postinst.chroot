@@ -1,0 +1,16 @@
+#!/bin/sh
+# Hyper-V enhanced session: xrdp listens on hv_sock (vsock port 3389) instead of TCP,
+# as in Microsoft's linux-vm-tools setup for Ubuntu.
+set -eu
+ini=/etc/xrdp/xrdp.ini
+sed -i -e 's/^port=3389$/port=vsock:\/\/-1:3389/' \
+       -e 's/^use_vsock=true$/use_vsock=false/' \
+       -e 's/^security_layer=negotiate$/security_layer=rdp/' \
+       -e 's/^crypt_level=high$/crypt_level=none/' \
+       -e 's/^bitmap_compression=true$/bitmap_compression=false/' "$ini"
+grep -q '^port=vsock://-1:3389$' "$ini" || { echo "xrdp.ini: could not switch to vsock" >&2; exit 1; }
+sed -i -e 's/^FuseMountName=thinclient_drives$/FuseMountName=shared-drives/' /etc/xrdp/sesman.ini
+# The trial user signs in through xrdp; xrdp must be able to read the TLS key.
+adduser xrdp ssl-cert >/dev/null 2>&1 || true
+usermod -a -G users trial
+systemctl enable xrdp.service

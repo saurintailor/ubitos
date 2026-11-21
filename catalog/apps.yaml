@@ -1,0 +1,311 @@
+# ubit app catalog: which host apps map to which Linux replacement.
+#
+# Matching rules (see agent/crates/scoring):
+#   windows: case-insensitive PREFIX match on the app's display name
+#            (the Uninstall registry DisplayName), e.g. "Zoom" matches "Zoom Workplace".
+#   macos:   case-insensitive EXACT match on the bundle identifier.
+#
+# status:  native       same app exists for Linux
+#          alternative  a good open replacement does the same job
+#          workaround   possible, but with friction (web version, compatibility layer)
+#          blocker      no practical path today
+# weight:  how much this app matters to an everyday switch (1-3).
+#
+# Change this file through pull requests; every entry is reviewed.
+
+version: "2026.11.1"
+entries:
+  # --- Browsers ---------------------------------------------------------------
+  - id: browser.chrome
+    category: apps
+    name: Google Chrome
+    match:
+      windows: ["Google Chrome"]
+      macos: ["com.google.Chrome"]
+    replacement: Firefox
+    status: native
+    weight: 3
+
+  - id: browser.edge
+    category: apps
+    name: Microsoft Edge
+    match:
+      windows: ["Microsoft Edge"]
+      macos: ["com.microsoft.edgemac"]
+    replacement: Firefox
+    status: native
+    weight: 2
+
+  - id: browser.safari
+    category: apps
+    name: Safari
+    match:
+      macos: ["com.apple.Safari"]
+    replacement: Firefox
+    status: native
+    weight: 2
+
+  - id: browser.firefox
+    category: apps
+    name: Firefox
+    match:
+      windows: ["Mozilla Firefox"]
+      macos: ["org.mozilla.firefox"]
+    replacement: Firefox
+    status: native
+    weight: 2
+
+  - id: browser.brave
+    category: apps
+    name: Brave
+    match:
+      windows: ["Brave"]
+      macos: ["com.brave.Browser"]
+    replacement: Brave for Linux
+    status: native
+    weight: 2
+
+  # --- Office and documents ---------------------------------------------------
+  - id: office.microsoft365
+    category: apps
+    name: Microsoft 365 / Office
+    match:
+      windows: ["Microsoft 365", "Microsoft Office"]
+      macos: ["com.microsoft.Word", "com.microsoft.Excel", "com.microsoft.Powerpoint"]
+    replacement: LibreOffice or ONLYOFFICE
+    status: alternative
+    weight: 3
+
+  - id: office.iwork
+    category: apps
+    name: Pages, Numbers, Keynote
+    match:
+      macos: ["com.apple.iWork.Pages", "com.apple.iWork.Numbers", "com.apple.iWork.Keynote"]
+    replacement: LibreOffice
+    status: alternative
+    weight: 1
+
+  - id: office.acrobat
+    category: apps
+    name: Adobe Acrobat
+    match:
+      windows: ["Adobe Acrobat"]
+      macos: ["com.adobe.Acrobat.Pro", "com.adobe.Reader"]
+    replacement: Okular
+    status: alternative
+    weight: 1
+
+  # --- Mail ---------------------------------------------------------------------
+  - id: mail.outlook
+    category: apps
+    name: Microsoft Outlook
+    match:
+      windows: ["Microsoft Outlook"]
+      macos: ["com.microsoft.Outlook"]
+    replacement: Thunderbird
+    status: alternative
+    weight: 2
+
+  - id: mail.apple
+    category: apps
+    name: Apple Mail
+    match:
+      macos: ["com.apple.mail"]
+    replacement: Thunderbird
+    status: alternative
+    weight: 1
+
+  # --- Communication ------------------------------------------------------------
+  - id: chat.slack
+    category: apps
+    name: Slack
+    match:
+      windows: ["Slack"]
+      macos: ["com.tinyspeck.slackmacgap"]
+    replacement: Slack for Linux
+    status: native
+    weight: 2
+
+  - id: chat.discord
+    category: apps
+    name: Discord
+    match:
+      windows: ["Discord"]
+      macos: ["com.hnc.Discord"]
+    replacement: Discord for Linux
+    status: native
+    weight: 1
+
+  - id: chat.zoom
+    category: apps
+    name: Zoom
+    match:
+      windows: ["Zoom"]
+      macos: ["us.zoom.xos"]
+    replacement: Zoom for Linux
+    status: native
+    weight: 2
+
+  - id: chat.teams
+    category: apps
+    name: Microsoft Teams
+    match:
+      windows: ["Microsoft Teams"]
+      macos: ["com.microsoft.teams2", "com.microsoft.teams"]
+    replacement: Teams in the browser
+    status: workaround
+    weight: 2
+
+  - id: chat.whatsapp
+    category: apps
+    name: WhatsApp
+    match:
+      windows: ["WhatsApp"]
+      macos: ["net.whatsapp.WhatsApp"]
+    replacement: WhatsApp Web in Firefox
+    status: workaround
+    weight: 1
+
+  # --- Media --------------------------------------------------------------------
+  - id: media.spotify
+    category: apps
+    name: Spotify
+    match:
+      windows: ["Spotify"]
+      macos: ["com.spotify.client"]
+    replacement: Spotify for Linux
+    status: native
+    weight: 1
+
+  - id: media.vlc
+    category: apps
+    name: VLC
+    match:
+      windows: ["VLC media player"]
+      macos: ["org.videolan.vlc"]
+    replacement: VLC
+    status: native
+    weight: 1
+
+  # --- Creative -----------------------------------------------------------------
+  - id: design.photoshop
+    category: apps
+    name: Adobe Photoshop
+    match:
+      windows: ["Adobe Photoshop"]
+      macos: ["com.adobe.Photoshop"]
+    replacement: GIMP or Krita
+    status: workaround
+    weight: 3
+
+  - id: design.lightroom
+    category: apps
+    name: Adobe Lightroom
+    match:
+      windows: ["Adobe Lightroom"]
+      macos: ["com.adobe.LightroomClassicCC7", "com.adobe.lightroomCC"]
+    replacement: darktable
+    status: alternative
+    weight: 2
+
+  - id: design.figma
+    category: apps
+    name: Figma
+    match:
+      windows: ["Figma"]
+      macos: ["com.figma.Desktop"]
+    replacement: Figma in the browser
+    status: alternative
+    weight: 1
+
+  # --- Developer ----------------------------------------------------------------
+  - id: dev.vscode
+    category: apps
+    name: Visual Studio Code
+    match:
+      windows: ["Microsoft Visual Studio Code"]
+      macos: ["com.microsoft.VSCode"]
+    replacement: VS Code or VSCodium
+    status: native
+    weight: 2
+
+  # --- Files and passwords ------------------------------------------------------
+  - id: storage.dropbox
+    category: apps
+    name: Dropbox
+    match:
+      windows: ["Dropbox"]
+      macos: ["com.getdropbox.dropbox"]
+    replacement: Dropbox for Linux
+    status: native
+    weight: 1
+
+  - id: storage.googledrive
+    category: apps
+    name: Google Drive
+    match:
+      windows: ["Google Drive"]
+      macos: ["com.google.drivefs"]
+    replacement: Nextcloud, or Drive in the browser
+    status: alternative
+    weight: 2
+
+  - id: storage.onedrive
+    category: apps
+    name: Microsoft OneDrive
+    match:
+      windows: ["Microsoft OneDrive"]
+      macos: ["com.microsoft.OneDrive-mac", "com.microsoft.OneDrive"]
+    replacement: Nextcloud, or OneDrive in the browser
+    status: workaround
+    weight: 2
+
+  - id: storage.icloud
+    category: apps
+    name: iCloud for Windows
+    match:
+      windows: ["iCloud"]
+    replacement: iCloud.com in the browser
+    status: workaround
+    weight: 2
+
+  - id: password.1password
+    category: apps
+    name: 1Password
+    match:
+      windows: ["1Password"]
+      macos: ["com.1password.1password"]
+    replacement: 1Password for Linux
+    status: native
+    weight: 1
+
+  - id: password.bitwarden
+    category: apps
+    name: Bitwarden
+    match:
+      windows: ["Bitwarden"]
+      macos: ["com.bitwarden.desktop"]
+    replacement: Bitwarden for Linux
+    status: native
+    weight: 1
+
+  # --- Productivity and games ---------------------------------------------------
+  - id: notes.notion
+    category: apps
+    name: Notion
+    match:
+      windows: ["Notion"]
+      macos: ["notion.id"]
+    replacement: Notion in the browser
+    status: workaround
+    weight: 1
+
+  - id: games.steam
+    category: apps
+    name: Steam
+    match:
+      windows: ["Steam"]
+      macos: ["com.valvesoftware.steam"]
+    replacement: Steam with Proton
+    status: alternative
+    weight: 2

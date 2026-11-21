@@ -1,0 +1,4 @@
+# Firefox comes from Mozilla's APT repository, not Ubuntu's snap transition package.
+Package: firefox*
+Pin: origin packages.mozilla.org
+Pin-Priority: 1001

@@ -1,0 +1,19 @@
+name: protocol
+
+on:
+  push:
+    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+  pull_request:
+    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install "jsonschema==4.26.0"
+      - name: Fixtures agree with the schema
+        run: python3 protocol/validate.py

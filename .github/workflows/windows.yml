@@ -1,0 +1,30 @@
+name: windows-host
+
+on:
+  push:
+    paths: ["hosts/windows/**", "protocol/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["hosts/windows/**", "protocol/**", ".github/workflows/windows.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    defaults:
+      run:
+        working-directory: hosts/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet build Ubit.sln -c Release
+      - run: dotnet test Ubit.sln -c Release --no-build
+      - name: Publish the app
+        run: dotnet publish src/Ubit.App/Ubit.App.csproj -c Release -r win-x64 --self-contained false -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ubit-windows-app
+          path: hosts/windows/publish

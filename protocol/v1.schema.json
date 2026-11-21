@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ubit:protocol:v1",
+  "title": "ubit host <-> agent protocol, version 1",
+  "description": "Each frame is a 4-byte big-endian length followed by one UTF-8 JSON object matching this schema. Maximum frame body: 1 MiB. Receivers ignore unknown fields and answer unknown message types with an error message.",
+  "type": "object",
+  "required": ["v", "type"],
+  "properties": {
+    "v": { "const": 1 },
+    "type": {
+      "enum": ["hello", "hello_ack", "host_inventory", "score_result", "ping", "pong", "error"]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/hello_ack" },
+    { "$ref": "#/$defs/host_inventory" },
+    { "$ref": "#/$defs/score_result" },
+    { "$ref": "#/$defs/ping" },
+    { "$ref": "#/$defs/pong" },
+    { "$ref": "#/$defs/error" }
+  ],
+  "$defs": {
+    "short_string": { "type": "string", "maxLength": 512 },
+    "hello": {
+      "description": "Host -> agent. First message on every connection. Sending it again starts the session over (serial transports have no disconnect signal).",
+      "type": "object",
+      "required": ["type", "host_os", "shell_version"],
+      "properties": {
+        "type": { "const": "hello" },
+        "host_os": { "enum": ["macos", "windows", "linux"] },
+        "shell_version": { "$ref": "#/$defs/short_string" }
+      }
+    },
+    "hello_ack": {
+      "description": "Agent -> host. Reply to hello.",
+      "type": "object",
+      "required": ["type", "agent_version", "distro_version"],
+      "properties": {
+        "type": { "const": "hello_ack" },
+        "agent_version": { "$ref": "#/$defs/short_string" },
+        "distro_version": { "$ref": "#/$defs/short_string" }
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": ["id", "name", "source"],
+      "properties": {
+        "id": {
+          "description": "macOS: bundle identifier. Windows: Uninstall registry key name.",
+          "$ref": "#/$defs/short_string"
+        },
+        "name": { "$ref": "#/$defs/short_string" },
+        "source": {
+          "description": "Where the host found the app, e.g. applications, uninstall-hklm.",
+          "$ref": "#/$defs/short_string"
+        }
+      }
+    },
+    "host_inventory": {
+      "description": "Host -> agent. App identifiers and default handlers only; never file contents.",
+      "type": "object",
+      "required": ["type", "apps"],
+      "properties": {
+        "type": { "const": "host_inventory" },
+        "apps": { "type": "array", "maxItems": 5000, "items": { "$ref": "#/$defs/app" } },
+        "default_browser": { "oneOf": [{ "$ref": "#/$defs/short_string" }, { "type": "null" }] },
+        "default_mail": { "oneOf": [{ "$ref": "#/$defs/short_string" }, { "type": "null" }] }
+      }
+    },
+    "score_item": {
+      "type": "object",
+      "required": ["catalog_id", "category", "from", "to", "status"],
+      "properties": {
+        "catalog_id": { "$ref": "#/$defs/short_string" },
+        "category": { "enum": ["apps", "services", "devices"] },
+        "from": { "$ref": "#/$defs/short_string" },
+        "to": { "$ref": "#/$defs/short_string" },
+        "status": { "enum": ["native", "alternative", "workaround", "blocker"] }
+      }
+    },
+    "score_result": {
+      "description": "Agent -> host. score is null when nothing in the inventory matched the catalog.",
+      "type": "object",
+      "required": ["type", "score", "items", "unknown_apps", "catalog_version"],
+      "properties": {
+        "type": { "const": "score_result" },
+        "score": { "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/score_item" } },
+        "unknown_apps": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/short_string" } },
+        "catalog_version": { "$ref": "#/$defs/short_string" }
+      }
+    },
+    "ping": {
+      "type": "object",
+      "required": ["type", "nonce"],
+      "properties": {
+        "type": { "const": "ping" },
+        "nonce": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "pong": {
+      "type": "object",
+      "required": ["type", "nonce"],
+      "properties": {
+        "type": { "const": "pong" },
+        "nonce": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["type", "code", "message"],
+      "properties": {
+        "type": { "const": "error" },
+        "code": { "enum": ["unsupported_version", "bad_message", "unexpected_message", "frame_too_large", "internal"] },
+        "message": { "$ref": "#/$defs/short_string" }
+      }
+    }
+  }
+}
