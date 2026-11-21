@@ -64,8 +64,8 @@ import AppKit
 extension InventoryScanner {
     /// Full scan of this Mac.
     public static func scan() -> Inventory {
-        let apps = merge(defaultRoots.map { apps(in: $0.url, source: $0.source) })
-        return Inventory(apps: apps,
+        let found = merge(defaultRoots.map { Self.apps(in: $0.url, source: $0.source) })
+        return Inventory(apps: found,
                          defaultBrowser: defaultHandler(for: "https://example.com"),
                          defaultMail: defaultHandler(for: "mailto:someone@example.com"))
     }
