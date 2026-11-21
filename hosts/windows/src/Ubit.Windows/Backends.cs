@@ -96,10 +96,22 @@ public sealed class HyperVBackend : IVmBackend
         {
             throw new InvalidOperationException("Shut ubit down before replacing its image.");
         }
-        hyperV.Value.Delete();
         Directory.CreateDirectory(VmBackends.VmDirectory);
-        File.Copy(vhdxPath, Vhdx, overwrite: true);
-        hyperV.Value.ResizeDisk(Vhdx, diskBytes);
+        // Stage the new disk first: a failed copy or resize leaves the current VM intact.
+        var staged = Path.Combine(VmBackends.VmDirectory, "ubit.importing.vhdx");
+        File.Delete(staged);
+        try
+        {
+            File.Copy(vhdxPath, staged);
+            hyperV.Value.ResizeDisk(staged, diskBytes);
+        }
+        catch
+        {
+            File.Delete(staged);
+            throw;
+        }
+        hyperV.Value.Delete();
+        File.Move(staged, Vhdx, overwrite: true);
         hyperV.Value.EnsureVm(Vhdx);
     }
 
