@@ -3,7 +3,7 @@
 SwiftUI app on Virtualization.framework. Apple Silicon, macOS 14+.
 
 ```sh
-./scripts/fetch-image.sh OWNER/REPO   # downloads + verifies ubit-mac-arm64.img (needs gh, zstd)
+./scripts/fetch-image.sh saurintailor/ubitos   # downloads + verifies ubit-mac-arm64.img (needs gh, zstd)
 ./scripts/run-dev.sh                  # builds, signs ad hoc with the virtualization entitlement, runs
 swift test                            # protocol + inventory tests (also run on Linux)
 ```

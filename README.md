@@ -65,7 +65,7 @@ mkosi --profile=mac -f build        # arm64, for Apple Silicon (build on arm64)
 
 ```sh
 cd hosts/macos
-./scripts/fetch-image.sh <owner>/<repo>   # downloads + verifies the arm64 image
+./scripts/fetch-image.sh saurintailor/ubitos   # downloads + verifies the arm64 image
 ./scripts/run-dev.sh                      # builds, ad-hoc signs, launches
 ```
 
